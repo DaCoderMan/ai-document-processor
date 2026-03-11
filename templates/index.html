@@ -264,7 +264,7 @@
                 }
                 renderResults(data);
             } catch (err) {
-                resultsDiv.innerHTML = `<div class="result-card"><div class="result-header"><h3 style="color:#f85149">Error: ${err.message}</h3></div></div>`;
+                resultsDiv.innerHTML = `<div class="result-card"><div class="result-header"><h3 style="color:#f85149">Error: ${escapeHtml(err.message)}</h3></div></div>`;
             }
 
             processBtn.disabled = false;
