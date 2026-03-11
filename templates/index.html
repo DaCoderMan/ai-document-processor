@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Document Processor</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #0f1117;
+            color: #e1e4e8;
+            min-height: 100vh;
+        }
+
+        .container { max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+        h1 {
+            font-size: 1.75rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+        .subtitle { color: #8b949e; margin-bottom: 2rem; }
+
+        /* Drop zone */
+        .drop-zone {
+            border: 2px dashed #30363d;
+            border-radius: 12px;
+            padding: 3rem 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+            background: #161b22;
+        }
+        .drop-zone:hover, .drop-zone.active {
+            border-color: #58a6ff;
+            background: #1c2333;
+        }
+        .drop-zone p { color: #8b949e; margin-top: 0.5rem; font-size: 0.9rem; }
+        .drop-zone .icon { font-size: 2.5rem; margin-bottom: 0.5rem; }
+
+        input[type="file"] { display: none; }
+
+        /* Options row */
+        .options {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+        .options label { font-size: 0.85rem; color: #8b949e; }
+        .options select, .options input[type="text"] {
+            background: #0d1117;
+            border: 1px solid #30363d;
+            color: #e1e4e8;
+            padding: 0.4rem 0.6rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+        }
+
+        /* File list */
+        .file-list { margin-top: 1.5rem; }
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.5rem;
+        }
+        .file-item .name { font-size: 0.9rem; }
+        .file-item .status { font-size: 0.8rem; color: #8b949e; }
+        .file-item .status.done { color: #3fb950; }
+        .file-item .status.error { color: #f85149; }
+        .file-item .remove {
+            background: none; border: none; color: #f85149;
+            cursor: pointer; font-size: 1.1rem; padding: 0 0.3rem;
+        }
+
+        /* Process button */
+        .btn-process {
+            margin-top: 1rem;
+            padding: 0.65rem 1.5rem;
+            background: #238636;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .btn-process:hover { background: #2ea043; }
+        .btn-process:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* Results */
+        .results { margin-top: 2rem; }
+        .result-card {
+            background: #161b22;
+            border: 1px solid #30363d;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            overflow: hidden;
+        }
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 1rem;
+            background: #1c2333;
+            cursor: pointer;
+        }
+        .result-header h3 { font-size: 0.95rem; font-weight: 500; }
+        .badge {
+            font-size: 0.75rem;
+            padding: 0.2rem 0.6rem;
+            border-radius: 20px;
+            background: #1f6feb;
+            color: #fff;
+        }
+        .result-body { padding: 1rem; display: none; }
+        .result-body.open { display: block; }
+        .result-body pre {
+            background: #0d1117;
+            padding: 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 0.82rem;
+            line-height: 1.5;
+            color: #c9d1d9;
+        }
+        .result-body h4 { font-size: 0.85rem; color: #8b949e; margin-bottom: 0.5rem; margin-top: 1rem; }
+        .result-body h4:first-child { margin-top: 0; }
+
+        .spinner {
+            display: inline-block;
+            width: 16px; height: 16px;
+            border: 2px solid #30363d;
+            border-top-color: #58a6ff;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AI Document Processor</h1>
+        <p class="subtitle">Upload PDFs or images. Get structured data back.</p>
+
+        <div class="drop-zone" id="dropZone">
+            <div class="icon">+</div>
+            <strong>Drop files here or click to browse</strong>
+            <p>PDF, PNG, JPG, TIFF — up to 20 MB each</p>
+        </div>
+        <input type="file" id="fileInput" multiple accept=".pdf,.png,.jpg,.jpeg,.tiff,.tif,.bmp,.webp">
+
+        <div class="options">
+            <div>
+                <label for="langSelect">OCR Language</label><br>
+                <select id="langSelect">
+                    <option value="eng">English</option>
+                    <option value="eng+heb">English + Hebrew</option>
+                    <option value="eng+ara">English + Arabic</option>
+                    <option value="eng+deu">English + German</option>
+                    <option value="eng+fra">English + French</option>
+                    <option value="eng+spa">English + Spanish</option>
+                    <option value="eng+chi_sim">English + Chinese (Simplified)</option>
+                </select>
+            </div>
+            <div>
+                <label for="docTypeSelect">Document Type</label><br>
+                <select id="docTypeSelect">
+                    <option value="">Auto-detect</option>
+                    <option value="invoice">Invoice</option>
+                    <option value="receipt">Receipt</option>
+                    <option value="contract">Contract</option>
+                    <option value="generic">Generic</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="file-list" id="fileList"></div>
+
+        <button class="btn-process" id="processBtn" disabled>Process Documents</button>
+
+        <div class="results" id="results"></div>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        const processBtn = document.getElementById('processBtn');
+        const resultsDiv = document.getElementById('results');
+
+        let selectedFiles = [];
+
+        // Drag & drop handlers
+        dropZone.addEventListener('click', () => fileInput.click());
+        dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('active'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('active'));
+        dropZone.addEventListener('drop', e => {
+            e.preventDefault();
+            dropZone.classList.remove('active');
+            addFiles(e.dataTransfer.files);
+        });
+        fileInput.addEventListener('change', () => { addFiles(fileInput.files); fileInput.value = ''; });
+
+        function addFiles(files) {
+            for (const f of files) selectedFiles.push(f);
+            renderFileList();
+        }
+
+        function renderFileList() {
+            fileList.innerHTML = selectedFiles.map((f, i) => `
+                <div class="file-item">
+                    <span class="name">${f.name} <span style="color:#8b949e;font-size:0.8rem">(${(f.size/1024).toFixed(0)} KB)</span></span>
+                    <button class="remove" onclick="removeFile(${i})">&times;</button>
+                </div>
+            `).join('');
+            processBtn.disabled = selectedFiles.length === 0;
+        }
+
+        window.removeFile = function(i) {
+            selectedFiles.splice(i, 1);
+            renderFileList();
+        };
+
+        // Process
+        processBtn.addEventListener('click', async () => {
+            if (selectedFiles.length === 0) return;
+
+            const lang = document.getElementById('langSelect').value;
+            const docType = document.getElementById('docTypeSelect').value;
+            processBtn.disabled = true;
+            processBtn.innerHTML = '<span class="spinner"></span> Processing...';
+            resultsDiv.innerHTML = '';
+
+            const useBatch = selectedFiles.length > 1;
+
+            try {
+                let data;
+                if (useBatch) {
+                    const form = new FormData();
+                    selectedFiles.forEach(f => form.append('files', f));
+                    const params = new URLSearchParams({ lang });
+                    if (docType) params.set('doc_type', docType);
+                    const resp = await fetch(`/api/batch?${params}`, { method: 'POST', body: form });
+                    if (!resp.ok) throw new Error((await resp.json()).detail || resp.statusText);
+                    const body = await resp.json();
+                    data = body.results;
+                } else {
+                    const form = new FormData();
+                    form.append('file', selectedFiles[0]);
+                    const params = new URLSearchParams({ lang });
+                    if (docType) params.set('doc_type', docType);
+                    const resp = await fetch(`/api/process?${params}`, { method: 'POST', body: form });
+                    if (!resp.ok) throw new Error((await resp.json()).detail || resp.statusText);
+                    data = [await resp.json()];
+                }
+                renderResults(data);
+            } catch (err) {
+                resultsDiv.innerHTML = `<div class="result-card"><div class="result-header"><h3 style="color:#f85149">Error: ${err.message}</h3></div></div>`;
+            }
+
+            processBtn.disabled = false;
+            processBtn.textContent = 'Process Documents';
+            selectedFiles = [];
+            renderFileList();
+        });
+
+        function renderResults(items) {
+            resultsDiv.innerHTML = items.map((item, i) => {
+                const hasError = item.error || item.result?.error;
+                const docType = item.result?.document_type || 'unknown';
+                const fieldsJson = item.result?.fields ? JSON.stringify(item.result.fields, null, 2) : '{}';
+                const rawText = item.extracted_text || '';
+                return `
+                    <div class="result-card">
+                        <div class="result-header" onclick="this.nextElementSibling.classList.toggle('open')">
+                            <h3>${item.filename || 'File ' + (i+1)} ${hasError ? '<span style="color:#f85149">(error)</span>' : ''}</h3>
+                            <span class="badge">${docType}</span>
+                        </div>
+                        <div class="result-body${i === 0 ? ' open' : ''}">
+                            ${hasError ? '<p style="color:#f85149;margin-bottom:1rem">' + (item.error || item.result.error) + '</p>' : ''}
+                            <h4>Extracted Fields</h4>
+                            <pre>${escapeHtml(fieldsJson)}</pre>
+                            ${rawText ? '<h4>Raw OCR Text (truncated)</h4><pre>' + escapeHtml(rawText.slice(0, 2000)) + '</pre>' : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function escapeHtml(s) {
+            return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+        }
+    </script>
+</body>
+</html>
