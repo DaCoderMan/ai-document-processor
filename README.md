@@ -1,144 +1,101 @@
-# AI Document Processor
+# Ai Document Processor
 
-A FastAPI service that extracts structured data from documents using OCR and LLM-based parsing. Upload a PDF or image, get clean JSON back with the relevant fields extracted.
+AI-powered document processing pipeline — PDF/image upload, OCR, and intelligent data extraction via FastAPI
 
-## What It Does
+## Overview
 
-1. **Accepts** PDF, PNG, JPG, TIFF uploads via REST API or web UI
-2. **Extracts text** using Tesseract OCR (with multi-language support) or PDF text layers
-3. **Classifies** the document type automatically (invoice, receipt, contract, or generic)
-4. **Parses** the text into structured JSON using any OpenAI-compatible LLM API
-5. **Returns** clean, typed fields — amounts as numbers, dates in ISO format, null for missing data
+- Repository: `DaCoderMan/ai-document-processor`
+- Primary language: `Python`
+- Project type: FastAPI service
+- Visibility: public
+- Default branch: `main`
 
-### Supported Document Types
+This README was generated after a static review of the repository structure, package files, scripts, source files, and existing documentation.
 
-| Type | Extracted Fields |
-|------|-----------------|
-| **Invoice** | Invoice number, dates, vendor/bill-to info, currency, line items with quantities and prices, subtotal/tax/total |
-| **Receipt** | Store name/address, date, itemized list, subtotal, tax, total, payment method |
-| **Contract** | Title, parties and roles, effective/expiration dates, key terms, governing law, signatures |
-| **Generic** | Title, date, summary, key entities, key data points |
+## What this project contains
 
-## Setup
+- API/server endpoints or route handlers are present.
+- Python modules include reusable classes/functions for automation or service logic.
 
-### Prerequisites
+## Repository profile
 
-- Python 3.11+
-- [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) installed and on PATH
-- An API key for any OpenAI-compatible LLM service
+- Files scanned: 9
+- Estimated source/config lines reviewed: 653
+- Top-level directories: `templates`
+- File-type mix: [none]: 3, .py: 2, .example: 1, .txt: 1, .md: 1, .html: 1
 
-### Install
+## Key files and folders
+
+- `Dockerfile`
+- `LICENSE`
+- `README.md`
+- `requirements.txt`
+
+## Python code map
+
+API route decorators:
+
+- `app.py: @app.get("/", response_class=HTMLResponse)`
+- `app.py: @app.post("/api/process")`
+- `app.py: @app.post("/api/batch")`
+- `app.py: @app.get("/health")`
+
+Classes sampled:
+
+- `processors.py:DocumentType`
+
+Functions sampled:
+
+- `app.py:extract_text_from_image`
+- `app.py:extract_text_from_pdf`
+- `app.py:run_ocr`
+- `app.py:index`
+- `app.py:process_document`
+- `app.py:batch_process`
+- `app.py:health`
+- `app.py:_process_one`
+- `processors.py:build_classification_prompt`
+- `processors.py:build_extraction_prompt`
+- `processors.py:call_llm`
+- `processors.py:classify_document`
+- `processors.py:parse_llm_json`
+- `processors.py:extract_fields`
+
+## Getting started
 
 ```bash
+git clone https://github.com/DaCoderMan/ai-document-processor
 cd ai-document-processor
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+```
+
+Common commands inferred from the repository:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Configure
+## Configuration clues
 
-Create a `.env` file:
+Environment/configuration names referenced in the codebase include:
 
-```env
-LLM_API_KEY=sk-your-api-key
-LLM_API_BASE=https://api.openai.com/v1    # or any compatible endpoint
-LLM_MODEL=gpt-4o-mini                      # or claude-3-haiku, etc.
-OCR_LANG=eng                               # tesseract language codes
-MAX_FILE_SIZE_MB=20
-```
+- `API`
+- `API_BASE`
+- `API_KEY`
+- `LLM_API_BASE`
+- `LLM_API_KEY`
 
-### Run
+Create a local `.env` file only if the project expects one, and never commit real secrets.
 
-```bash
-python app.py
-# or
-uvicorn app:app --host 0.0.0.0 --port 8080 --reload
-```
+## Security and maintenance notes
 
-Open `http://localhost:8080` for the web UI.
+No obvious hardcoded secret patterns were detected during this lightweight static pass. This is not a full security audit.
 
-## API Reference
+- Keep README setup instructions aligned with actual scripts and deployment steps.
+- Document required environment variables in `.env.example` rather than committing real values.
+- Run the project-specific test/build command before merging future code changes.
 
-### `POST /api/process`
+## Generated documentation note
 
-Process a single document.
-
-**Parameters:**
-| Name | Type | Description |
-|------|------|-------------|
-| `file` | form-data | The document file (required) |
-| `lang` | query | Tesseract language codes, e.g. `eng+heb` (default: `eng`) |
-| `doc_type` | query | Force document type: `invoice`, `receipt`, `contract`, `generic` (default: auto-detect) |
-
-**Response:**
-```json
-{
-  "filename": "invoice-042.pdf",
-  "extracted_text": "INVOICE #042...",
-  "result": {
-    "document_type": "invoice",
-    "fields": {
-      "invoice_number": "042",
-      "date": "2026-03-01",
-      "vendor": { "name": "Acme Corp", "address": "123 Main St" },
-      "total": 1500.00,
-      "line_items": [
-        { "description": "Consulting", "quantity": 10, "unit_price": 150.00, "amount": 1500.00 }
-      ]
-    }
-  }
-}
-```
-
-### `POST /api/batch`
-
-Process up to 10 documents concurrently. Same query parameters as `/api/process`, but send multiple files under the `files` field.
-
-**Response:**
-```json
-{
-  "count": 3,
-  "results": [ ... ]
-}
-```
-
-### `GET /health`
-
-Returns service status and whether the LLM key is configured.
-
-## Web UI
-
-The built-in UI at `/` supports:
-
-- Drag-and-drop or click-to-browse file selection
-- Multiple file upload
-- Language and document type selection
-- Collapsible result cards showing extracted fields and raw OCR text
-
-## Architecture
-
-```
-Upload → File validation → OCR (Tesseract / PDF text layer)
-       → LLM classification → LLM field extraction → JSON response
-```
-
-- **OCR** runs in a thread pool to avoid blocking the async event loop
-- **Batch processing** uses `asyncio.gather` for concurrent file handling
-- **LLM calls** go through `httpx.AsyncClient` to any OpenAI-compatible endpoint
-- **PDF handling** tries the embedded text layer first, falls back to page-by-page OCR at 300 DPI
-
-## Project Structure
-
-```
-app.py            — FastAPI routes, OCR pipeline, file handling
-processors.py     — Document classification, extraction prompts, LLM client
-templates/
-  index.html      — Web UI with drag-and-drop upload
-requirements.txt  — Python dependencies
-.env              — API keys and config (not committed)
-```
-
-## License
-
-MIT
+This README was prepared by Hermes Agent from repository analysis. Review the wording and project-specific assumptions before merging.
